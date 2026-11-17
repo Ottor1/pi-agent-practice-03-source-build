@@ -1,8 +1,8 @@
 # 实践课3：Pi Agent 源码安装与编译
 
-实验人 **liaobohan**　｜　实验日期 **2026 年 11 月 16 日**
+实验人 **liaobohan**　｜　实验日期 **2026 年 11 月 16–17 日**
 
-实验截图来自本机 Windows 伪终端实际运行的 PowerShell 和 Pi 会话。[课程实践三说明](https://github.com/hunnuOpenSourceSoftware2026/assignments/blob/main/practice/03-Pi-Agent-source-build.md)
+实验截图来自本机 Windows 伪终端实际运行的 PowerShell 和 Pi 会话。11 月 16 日完成依赖安装与审计，11 月 17 日在指定作业目录重新构建并验证源码版。[课程实践三说明](https://github.com/hunnuOpenSourceSoftware2026/assignments/blob/main/practice/03-Pi-Agent-source-build.md)
 
 ## 一、检查开发环境
 
@@ -16,7 +16,7 @@
 
 根项目在 `engines.node` 中声明 `>=22.19.0`。本机的 Node.js 24 满足要求，直接使用现有版本。
 
-![S1 PowerShell 中的 Node.js、npm 和 Git 版本](screenshots/S1-environment.png)
+![S1 指定作业目录下的 Node.js、npm 和 Git 版本](screenshots/S1-environment.png)
 
 ## 二、获取并核对小组仓库
 
@@ -30,9 +30,9 @@ git rev-parse HEAD
 git status --short
 ```
 
-实验使用实践二的小组 fork。`origin` 的拉取和推送地址一致，当前分支为 `main`，完整提交号为 `c3cc91632d0a1950fb122605b190233f2aa0006e`。实际仓库根目录为 `D:\Codex\2026-11-16\pi-agent-practice-03\pi-hunnu-2026`。[小组仓库](https://github.com/SAD-OpenStudy/pi-hunnu-2026)
+实验使用实践二的小组 fork。`origin` 的拉取和推送地址一致，当前分支为 `main`，完整提交号为 `c3cc91632d0a1950fb122605b190233f2aa0006e`。复验使用的仓库根目录为 `D:\下载用的\GitHub本地仓库\开源软件任务五\pi-hunnu-2026`。[小组仓库](https://github.com/SAD-OpenStudy/pi-hunnu-2026)
 
-克隆后工作树干净。抓取 S2 时依赖安装已经结束，`git status --short` 显示的 `M package-lock.json` 来自 npm 写回锁文件。第七节记录了差异核对结果。
+S2 中的 `git status --short` 在新克隆后没有输出，此时工作树干净。
 
 ![S2 当前目录、origin、main 分支和完整提交号](screenshots/S2-source.png)
 
@@ -61,7 +61,7 @@ $LASTEXITCODE
 
 npm 依据根 `package.json` 的依赖声明及根锁文件，解析并安装依赖到项目的 `node_modules`，同时为本地工作区建立链接。实际检查发现 `node_modules/@earendil-works/pi-coding-agent` 是指向 `packages/coding-agent` 的目录联接。`--ignore-scripts` 跳过安装阶段的 `prepare`、`postinstall` 等生命周期脚本。随后手动执行的 `npm run build` 仍会运行项目定义的构建脚本。
 
-安装输出为 `added 335 packages in 23s`，退出码 `0`。日志中的 `Unknown project config` 和 `deprecated` 属于警告，处理过程见第七节。
+首次安装输出为 `added 335 packages in 23s`，退出码 `0`。日志中的 `Unknown project config` 和 `deprecated` 属于警告，处理过程见第七节。
 
 ![S4 依赖安装命令、安装汇总和退出码 0](screenshots/S4-install.png)
 
@@ -69,25 +69,34 @@ npm 依据根 `package.json` 的依赖声明及根锁文件，解析并安装依
 
 ![S4 补图 官方 npm 注册表的独立审计结果](screenshots/S4b-audit.png)
 
+复验时使用同一源码提交，复用了已经安装的依赖。将根目录及三个子目录的 `node_modules` 复制到指定源码目录，并把工作区的目录联接建到新副本中。随后确认了编译器入口 `tsc.cmd` 可用，以及 `pi-coding-agent` 的联接目标位于指定源码目录。
+
+![S4 补图 指定目录下的编译器入口及工作区联接目标](screenshots/S4c-dependencies.png)
+
 ## 五、本地编译并验证产物
 
 ```powershell
-npm run build
+npm run build:offline
 $LASTEXITCODE
+Get-Location
 Test-Path .\packages\coding-agent\dist\bundle\cli.js
 node .\packages\coding-agent\dist\bundle\cli.js --version
 ```
 
-首次构建在 `ai` 子包执行 `generate-models`，向 models.dev、OpenRouter 和 Vercel AI Gateway 获取目录数据，生成各提供商目录及 `src/models.generated.ts`。目录数据描述模型标识、接口和能力，推理调用由配置的模型服务处理。生成数据通过校验后，根脚本继续构建其余工作区。已有有效模型目录数据时，项目提供 `npm run build:offline` 用于复用数据并重新编译。依据见 [AI 子包构建配置](https://github.com/SAD-OpenStudy/pi-hunnu-2026/blob/c3cc91632d0a1950fb122605b190233f2aa0006e/packages/ai/package.json)。
+首次执行 `npm run build` 时，`ai` 子包通过 `generate-models` 从 models.dev、OpenRouter 和 Vercel AI Gateway 等来源获取目录数据，生成各提供商目录及 `src/models.generated.ts`。目录数据描述模型标识、接口和能力，推理由配置的模型服务处理。[AI 子包构建配置](https://github.com/SAD-OpenStudy/pi-hunnu-2026/blob/c3cc91632d0a1950fb122605b190233f2aa0006e/packages/ai/package.json)
+
+在指定目录复验时，在线构建在模型目录获取阶段长时间等待。终止该次构建后，复制同一提交上一轮生成的模型目录 JSON 和清单，执行根目录的 `npm run build:offline`。该脚本先在 `ai` 子包校验目录数据，再按工作区顺序重新编译和打包。
+
+在包含中文的原路径下，单独执行 `tsc` 返回 `0`，`package-files.mjs copy` 则返回 Windows 退出码 `3221226505`（`0xC0000409`）。在指向同一源码目录的临时英文目录联接下，复制步骤返回 `0`。最终构建在指定源码目录调用 `npm run build:offline`，仅让文件复制子进程通过该联接访问同一份目录。S5 显示实际工作目录、联接目标和产物验证结果。
 
 | 验证项 | 实测结果 |
 | --- | --- |
-| 根构建退出码 | `0` |
+| 根离线构建退出码 | `0` |
 | CLI 打包汇总 | `84 files, 9.3 MiB` |
 | 本地 `dist/bundle/cli.js` 存在 | `True` |
 | 通过该路径运行 `--version` | `1.5.2` |
 
-![S5 根构建尾部、退出码、CLI 入口文件及版本](screenshots/S5-build.png)
+![S5 根离线构建尾部、实际工作目录、临时联接目标、CLI 入口及版本](screenshots/S5-build.png)
 
 ## 六、启动源码版并完成会话
 
@@ -111,7 +120,7 @@ $env:PI_CODING_AGENT_DIR = 'D:\Pi\agent'
 
 **模型实际回复**
 
-> 源码是开发者编写、可读可修改的原始程序文本，编译产物是由编译器/构建工具从源码生成、供机器直接执行的二进制或中间文件（如 .exe、.class、.o）。
+> 源码是人类可读、可编辑的原始程序文本，需要经过编译或解释才能运行；编译产物则是编译器把源码转换后生成的机器可执行文件或中间文件，人类通常难以直接阅读和修改。
 
 在本实验中，产物包括打包生成的 JavaScript，`cli.js` 入口由 Node.js 运行。
 
@@ -123,7 +132,7 @@ $env:PI_CODING_AGENT_DIR = 'D:\Pi\agent'
 
 安装和编译中出现 `Unknown project config "min-release-age"`、`"min-release-age-exclude"`。把警告名称与项目的 `.npmrc` 比对，确认这两项均出自仓库配置，本机 npm 11.6.2 提示不识别。`prebuild-install` 和 `node-domexception` 的 `deprecated` 消息表示维护状态。根据 S4、S5 的退出码和 CLI 验证结果，使用当前版本完成了实验。已知漏洞情况以 S4 补图所示的官方注册表审计为准。[根目录 .npmrc](https://github.com/SAD-OpenStudy/pi-hunnu-2026/blob/c3cc91632d0a1950fb122605b190233f2aa0006e/.npmrc)
 
-安装后用 `git diff -- package-lock.json` 查看差异，并比较前后包路径和版本。npm 调整了部分条目的 `libc` 与 `peer` 元数据，包路径集合和版本号一致。锁文件变化留在本地源码实验目录。
+首次安装后用 `git diff -- package-lock.json` 查看差异，并比较前后包路径和版本。npm 调整了部分条目的 `libc` 与 `peer` 元数据，包路径集合和版本号一致。指定目录中的新副本使用了小组提交中的锁文件。
 
 ### 2. 源码版要定位已有的模型登录配置
 
